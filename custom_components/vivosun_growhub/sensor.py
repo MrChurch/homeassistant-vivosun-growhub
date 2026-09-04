@@ -307,8 +307,9 @@ class VivosunChannelSensorEntity(CoordinatorEntity[VivosunCoordinator], SensorEn
     def _raw_channel_value(self) -> int | None:
         sensors = sensor_slice(self.coordinator, self._device_id)
         keys = self.entity_description.channel_key_lookup
-        # E42A+ (and the VGrow controller) report the built-in sensor as
-        # bTemp/bHumi/bVpd and the external probe as pTemp/pHumi/pVpd.
+        # E42A+ (and the VGrow controller) report the tent/inside probe as
+        # pTemp/pHumi/pVpd and the controller/outside sensor as
+        # bTemp/bHumi/bVpd.
         # The legacy inTemp/outTemp names are not emitted by these models.
         # Keep the entity names stable, but select the correct physical
         # channel before applying the generic legacy aliases.
@@ -319,17 +320,17 @@ class VivosunChannelSensorEntity(CoordinatorEntity[VivosunCoordinator], SensorEn
         model = client_model_token(device.client_id) if device is not None else ""
         if model in {"VSCTLE42AP", "VSCTLY18"}:
             if self.entity_description.key == "inside_temperature":
-                keys = ("bTemp", "inTemp")
+                keys = ("pTemp", "inTemp")
             elif self.entity_description.key == "inside_humidity":
-                keys = ("bHumi", "inHumi")
+                keys = ("pHumi", "inHumi")
             elif self.entity_description.key == "inside_vpd":
-                keys = ("bVpd", "inVpd")
+                keys = ("pVpd", "inVpd")
             elif self.entity_description.key == "outside_temperature":
-                keys = ("pTemp", "outTemp")
+                keys = ("bTemp", "outTemp")
             elif self.entity_description.key == "outside_humidity":
-                keys = ("pHumi", "outHumi")
+                keys = ("bHumi", "outHumi")
             elif self.entity_description.key == "outside_vpd":
-                keys = ("pVpd", "outVpd")
+                keys = ("bVpd", "outVpd")
         for key in keys:
             value = sensors.get(key)
             if isinstance(value, bool):
