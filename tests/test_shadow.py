@@ -56,7 +56,7 @@ def test_parse_shadow_document_full_reported_state() -> None:
                     "nw": 0,
                 },
                 "dFan": {
-                    "mode": 1,
+                    "mode": 2,
                     "lv": 45,
                     "manu": {"lv": 20},
                     "auto": {
@@ -312,7 +312,7 @@ def test_non_level_payload_builders_match_required_structure() -> None:
     assert build_dhmdf_target_payload(6000) == {
         "state": {"desired": {"dhmdf": {"auto": {"tHumi": 6000}}}}
     }
-    assert build_dfan_auto_mode_payload(True) == {"state": {"desired": {"dFan": {"mode": 1}}}}
+    assert build_dfan_auto_mode_payload(True) == {"state": {"desired": {"dFan": {"mode": 2}}}}
     assert build_dfan_auto_threshold_payload("tMax", 2800) == {
         "state": {"desired": {"dFan": {"auto": {"tMax": 2800}}}}
     }

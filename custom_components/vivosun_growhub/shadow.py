@@ -10,6 +10,7 @@ from .const import (
     CFAN_NATURAL_WIND_VALUE,
     DFAN_LEVEL_MAP,
     LIGHT_MIN_BRIGHTNESS,
+    DFAN_MODE_AUTO,
     MODE_AUTO,
     SENSOR_UNAVAILABLE_SENTINEL,
     SHADOW_KEY_AUTO,
@@ -368,8 +369,8 @@ def build_cfan_night_mode_payload(enabled: bool) -> dict[str, object]:
 
 
 def build_dfan_auto_mode_payload(enabled: bool) -> dict[str, object]:
-    """Build desired dFan mode payload for `desired.dFan.mode` (0/1)."""
-    return _build_desired_payload(SHADOW_KEY_DUCT_FAN, {SHADOW_KEY_MODE: MODE_AUTO if enabled else 0})
+    """Build desired dFan mode payload (0=manual, 1=cycle, 2=auto)."""
+    return _build_desired_payload(SHADOW_KEY_DUCT_FAN, {SHADOW_KEY_MODE: DFAN_MODE_AUTO if enabled else 0})
 
 
 def build_dfan_auto_threshold_payload(field: str, value: int | None) -> dict[str, object]:
@@ -528,7 +529,7 @@ def _parse_dfan_state(dfan: dict[str, object]) -> DuctFanState:
         mode=mode,
         level=level,
         manual_level=manual_level,
-        auto_enabled=(mode == MODE_AUTO),
+        auto_enabled=(mode == DFAN_MODE_AUTO),
         auto=auto_state,
     )
 

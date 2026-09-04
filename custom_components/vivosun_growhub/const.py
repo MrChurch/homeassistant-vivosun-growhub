@@ -106,6 +106,8 @@ MODE_MANUAL = 0
 MODE_AUTO = 1
 MODE_CYCLE = 1
 MODE_PLAN = 2
+# The GrowHub dFan uses a separate mode enum: 0=manual, 1=cycle, 2=auto.
+DFAN_MODE_AUTO = 2
 
 SHADOW_ROOT_STATE = "state"
 SHADOW_ROOT_DESIRED = "desired"
