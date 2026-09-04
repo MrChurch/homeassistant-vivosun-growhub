@@ -25,11 +25,11 @@ _DEV_ID = "dev-1"
 
 
 class _StubCoordinator:
-    def __init__(self, *, device_type: str = "controller") -> None:
+    def __init__(self, *, device_type: str = "controller", model: str = "VSCTLE42A") -> None:
         self.data: dict[str, object] = {}
         self._device = DeviceInfo(
             device_id=_DEV_ID,
-            client_id="vivosun-VSCTLE42A-acc-dev-1",
+            client_id=f"vivosun-{model}-acc-dev-1",
             topic_prefix="prefix",
             name="GrowHub",
             online=True,
@@ -166,7 +166,7 @@ async def test_sensor_values_scale_and_map_correctly(hass: HomeAssistant) -> Non
 
 
 async def test_sensor_aliases_map_e42a_plus_channel_keys(hass: HomeAssistant) -> None:
-    coordinator = _StubCoordinator()
+    coordinator = _StubCoordinator(model="VSCTLE42AP")
     coordinator.data = {
         "sensors": {
             _DEV_ID: {
@@ -193,12 +193,12 @@ async def test_sensor_aliases_map_e42a_plus_channel_keys(hass: HomeAssistant) ->
     await async_setup_entry(hass, entry, _add)
     entity_by_unique_id = {entity.unique_id: entity for entity in added}
 
-    assert entity_by_unique_id[f"vivosun_growhub_{_DEV_ID}_inTemp"].native_value == 18.76
-    assert entity_by_unique_id[f"vivosun_growhub_{_DEV_ID}_inHumi"].native_value == 52.34
-    assert entity_by_unique_id[f"vivosun_growhub_{_DEV_ID}_inVpd"].native_value == 0.98
-    assert entity_by_unique_id[f"vivosun_growhub_{_DEV_ID}_outTemp"].native_value == 23.45
-    assert entity_by_unique_id[f"vivosun_growhub_{_DEV_ID}_outHumi"].native_value == 60.12
-    assert entity_by_unique_id[f"vivosun_growhub_{_DEV_ID}_outVpd"].native_value == 1.45
+    assert entity_by_unique_id[f"vivosun_growhub_{_DEV_ID}_inTemp"].native_value == 23.45
+    assert entity_by_unique_id[f"vivosun_growhub_{_DEV_ID}_inHumi"].native_value == 60.12
+    assert entity_by_unique_id[f"vivosun_growhub_{_DEV_ID}_inVpd"].native_value == 1.45
+    assert entity_by_unique_id[f"vivosun_growhub_{_DEV_ID}_outTemp"].native_value == 18.76
+    assert entity_by_unique_id[f"vivosun_growhub_{_DEV_ID}_outHumi"].native_value == 52.34
+    assert entity_by_unique_id[f"vivosun_growhub_{_DEV_ID}_outVpd"].native_value == 0.98
 
 
 async def test_sensor_normalized_sentinel_none_maps_to_unavailable(hass: HomeAssistant) -> None:
