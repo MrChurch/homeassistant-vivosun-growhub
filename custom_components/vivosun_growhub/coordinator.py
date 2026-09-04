@@ -33,6 +33,7 @@ from .shadow import (
     ShadowParseError,
     ShadowV1State,
     parse_channel_sensor_payload,
+    parse_reported_fragment,
     parse_shadow_document,
 )
 from .support_capture import SupportCaptureManager, summarize_support_capture_payload
@@ -396,7 +397,12 @@ class VivosunCoordinator(DataUpdateCoordinator[dict[str, object]]):  # type: ign
                         await self._refresh_plan_stages(force_refresh_active=True)
                     updated = True
                 elif topic.endswith("/update/delta"):
-                    self._parse_json_object(payload)
+                    delta = self._parse_json_object(payload)
+                    delta_state = delta.get("state")
+                    if isinstance(delta_state, dict):
+                        parsed_delta = parse_reported_fragment(cast("dict[str, object]", delta_state))
+                        self._merge_shadow_state(device_id, parsed_delta)
+                        updated = bool(parsed_delta)
             # Channel topics: {topic_prefix}/channel/app
             elif "/channel/app" in topic:
                 self._merge_sensor_state(device_id, parse_channel_sensor_payload(payload))
