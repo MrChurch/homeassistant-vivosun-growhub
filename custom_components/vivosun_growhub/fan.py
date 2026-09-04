@@ -308,6 +308,11 @@ class VivosunDuctFanEntity(_VivosunFanBase):
             value = auto.get(field)
             if isinstance(value, int) or value is None:
                 attributes[field] = value
+        lv_max = _as_int(auto.get("lvMax"))
+        max_percentage = dfan_shadow_to_percentage(lv_max)
+        if max_percentage is not None:
+            attributes["max_speed"] = round(max_percentage / 10)
+            attributes["max_speed_percentage"] = max_percentage
         return attributes
 
     async def async_set_percentage(self, percentage: int) -> None:
