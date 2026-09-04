@@ -221,6 +221,10 @@ async def test_duct_fan_state_and_commands() -> None:
     assert entity.preset_mode == "auto"
     assert entity.extra_state_attributes["lvMin"] == 20
     assert entity.extra_state_attributes["tMin"] is None
+    assert entity.extra_state_attributes["current_speed"] == 5
+    assert entity.extra_state_attributes["current_speed_percentage"] == 50
+    assert entity.extra_state_attributes["max_speed"] == 9
+    assert entity.extra_state_attributes["max_speed_percentage"] == 90
 
     await entity.async_set_percentage(55)
     coordinator.async_publish_shadow_update.assert_awaited_once_with(

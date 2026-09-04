@@ -47,6 +47,17 @@ def _runtime(hass: HomeAssistant, entry: ConfigEntry) -> RuntimeData:
     return cast("RuntimeData", hass.data[DOMAIN][entry.entry_id])
 
 
+def _dfan_app_level(shadow_value: int | None) -> int | None:
+    """Convert a dFan shadow value to the app's 0..10 level."""
+    percentage = dfan_shadow_to_percentage(shadow_value)
+    if percentage is None:
+        return None
+    try:
+        return DFAN_LEVEL_MAP.index(percentage)
+    except ValueError:
+        return round(percentage / 10)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -289,6 +300,7 @@ class VivosunDuctFanEntity(_VivosunFanBase):
     @property
     def extra_state_attributes(self) -> dict[str, object]:
         """Expose dFan auto-threshold state attributes."""
+        state = self._dfan_state()
         auto = self._dfan_auto_state()
         attributes: dict[str, object] = {}
         for field in (
@@ -311,12 +323,20 @@ class VivosunDuctFanEntity(_VivosunFanBase):
         lv_max = _as_int(auto.get("lvMax"))
         max_percentage = dfan_shadow_to_percentage(lv_max)
         if max_percentage is not None:
-            try:
-                max_level = DFAN_LEVEL_MAP.index(max_percentage)
-            except ValueError:
-                max_level = round(max_percentage / 10)
-            attributes["max_speed"] = max_level
+            attributes["max_speed"] = _dfan_app_level(lv_max)
             attributes["max_speed_percentage"] = max_percentage
+
+        current_value = _as_int(state.get("level"))
+        current_percentage = dfan_shadow_to_percentage(current_value)
+        if current_percentage is not None:
+            attributes["current_speed"] = _dfan_app_level(current_value)
+            attributes["current_speed_percentage"] = current_percentage
+
+        manual_value = _as_int(state.get("manual_level"))
+        manual_percentage = dfan_shadow_to_percentage(manual_value)
+        if manual_percentage is not None:
+            attributes["manual_speed"] = _dfan_app_level(manual_value)
+            attributes["manual_speed_percentage"] = manual_percentage
         return attributes
 
     async def async_set_percentage(self, percentage: int) -> None:
