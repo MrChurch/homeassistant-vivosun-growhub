@@ -11,7 +11,7 @@ from homeassistant.components.fan import FanEntity, FanEntityFeature
 from homeassistant.helpers.entity_platform import async_get_current_platform
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DFAN_LEVEL_MAP, DOMAIN
 from .coordinator import VivosunCoordinator
 from .entity_helpers import build_device_info, is_entity_available, shadow_slice
 from .shadow import (
@@ -311,7 +311,11 @@ class VivosunDuctFanEntity(_VivosunFanBase):
         lv_max = _as_int(auto.get("lvMax"))
         max_percentage = dfan_shadow_to_percentage(lv_max)
         if max_percentage is not None:
-            attributes["max_speed"] = round(max_percentage / 10)
+            try:
+                max_level = DFAN_LEVEL_MAP.index(max_percentage)
+            except ValueError:
+                max_level = round(max_percentage / 10)
+            attributes["max_speed"] = max_level
             attributes["max_speed_percentage"] = max_percentage
         return attributes
 
