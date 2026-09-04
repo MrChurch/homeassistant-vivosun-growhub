@@ -217,7 +217,7 @@ async def test_duct_fan_state_and_commands() -> None:
     entity = _make_dfan(coordinator)
 
     assert entity.unique_id == f"vivosun_growhub_{_DEV_ID}_dfan"
-    assert entity.percentage == 90
+    assert entity.percentage == 50
     assert entity.preset_mode == "auto"
     assert entity.extra_state_attributes["lvMin"] == 20
     assert entity.extra_state_attributes["tMin"] is None

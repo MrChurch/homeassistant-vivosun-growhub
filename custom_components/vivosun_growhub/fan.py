@@ -286,19 +286,8 @@ class VivosunDuctFanEntity(_VivosunFanBase):
 
     @property
     def percentage(self) -> int | None:
-        """Return the app-facing fan setting percentage.
-
-        In Auto mode the app displays the configured Max Speed, while the
-        device's ``dFan.lv`` is the instantaneous operating speed. Keep the
-        latter in ``current_speed_percentage`` attributes.
-        """
+        """Return the currently operating fan speed percentage."""
         state = self._dfan_state()
-        if state.get("auto_enabled") is True:
-            auto_percentage = dfan_shadow_to_percentage(
-                _as_int(self._dfan_auto_state().get("lvMax"))
-            )
-            if auto_percentage is not None:
-                return auto_percentage
         return dfan_shadow_to_percentage(_as_int(state.get("level")))
 
     @property
