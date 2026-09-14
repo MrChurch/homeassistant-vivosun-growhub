@@ -272,6 +272,7 @@ class VivosunCoordinator(DataUpdateCoordinator[dict[str, object]]):  # type: ign
 
         end_time = int(datetime.now(tz=UTC).timestamp())
         start_time = end_time - _POINT_LOG_WINDOW_SECONDS
+        reauthenticated = False
         for device in self._devices:
             if not device.supports_point_log:
                 continue
@@ -282,6 +283,34 @@ class VivosunCoordinator(DataUpdateCoordinator[dict[str, object]]):  # type: ign
                 if point_log:
                     self._sensor_states.setdefault(device.device_id, {}).update(
                         cast("dict[str, object]", point_log)
+                    )
+            except VivosunAuthError:
+                if reauthenticated:
+                    self._logger.warning(
+                        "Point-log authentication still invalid after full re-login"
+                    )
+                    continue
+                self._logger.warning("Point-log authentication expired, performing full re-login")
+                try:
+                    async with self._reconnect_lock:
+                        await self._full_reauthenticate()
+                    tokens = self._tokens
+                    if tokens is None:
+                        self._logger.warning("Full re-login returned no API tokens")
+                        continue
+                    reauthenticated = True
+                    point_log = await self._api.get_point_log(
+                        tokens, device, start_time=start_time, end_time=end_time
+                    )
+                    if point_log:
+                        self._sensor_states.setdefault(device.device_id, {}).update(
+                            cast("dict[str, object]", point_log)
+                        )
+                except Exception:
+                    self._logger.warning(
+                        "Failed to refresh point log after full re-login for device %s",
+                        device.name,
+                        exc_info=True,
                     )
             except Exception:
                 self._logger.debug(

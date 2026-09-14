@@ -64,6 +64,7 @@ class _ApiStub:
             aws_port=443,
         )
         self.point_log: dict[str, int | None] = {}
+        self.point_log_auth_failures_remaining = 0
 
     async def login(self, _email: str, _password: str) -> AuthTokens:
         self.calls.append("login")
@@ -87,6 +88,9 @@ class _ApiStub:
     ) -> dict[str, int | None]:
         _ = (start_time, end_time)
         self.calls.append("get_point_log")
+        if self.point_log_auth_failures_remaining > 0:
+            self.point_log_auth_failures_remaining -= 1
+            raise VivosunAuthError("expired")
         return dict(self.point_log)
 
     async def get_plan_stage_info(self, _tokens: AuthTokens, stage_id: str) -> object:
@@ -281,6 +285,36 @@ async def test_coordinator_skips_point_log_for_no_scene_devices(
     await coordinator.async_start()
 
     assert api.calls == ["login", "get_devices", "get_aws_identity"]
+
+    await coordinator.async_shutdown()
+
+
+async def test_point_log_auth_expiry_reauthenticates_and_retries(
+    hass: HomeAssistant,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    api = _ApiStub()
+    api.point_log = {"inTemp": 3000}
+    api.point_log_auth_failures_remaining = 1
+    aws_auth = _AwsAuthStub()
+    aws_auth.queue_credentials(_credentials(datetime.now(tz=UTC) + timedelta(hours=1)))
+    aws_auth.queue_credentials(_credentials(datetime.now(tz=UTC) + timedelta(hours=2)))
+    _patch_coordinator_deps(monkeypatch, api, aws_auth)
+
+    coordinator = VivosunCoordinator(hass, object(), email="user@example.com", password="secret")
+    await coordinator.async_start()
+
+    assert api.calls[:7] == [
+        "login",
+        "get_devices",
+        "get_aws_identity",
+        "get_point_log",
+        "login",
+        "get_aws_identity",
+        "get_point_log",
+    ]
+    assert api.calls.count("get_point_log") == 3
+    assert coordinator.data["sensors"]["device-1"]["inTemp"] == 3000
 
     await coordinator.async_shutdown()
 
