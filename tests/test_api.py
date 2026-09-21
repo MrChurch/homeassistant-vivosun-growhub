@@ -483,6 +483,40 @@ async def test_get_point_log_returns_latest_sensor_snapshot() -> None:
     }
 
 
+async def test_get_point_log_selects_newest_row_by_timestamp() -> None:
+    payload = {
+        "code": 0,
+        "success": True,
+        "message": "success",
+        "data": {
+            "iotDataLogList": [
+                {"inTemp": 2100, "time": 300},
+                {"inTemp": 2004, "time": 200},
+            ]
+        },
+    }
+    session = cast("aiohttp.ClientSession", _MockSession(responses=[_MockResponse(status=200, payload=payload)]))
+    client = VivosunApiClient(session)
+
+    from custom_components.vivosun_growhub.models import DeviceInfo
+
+    snapshot = await client.get_point_log(
+        _valid_tokens(),
+        DeviceInfo(
+            device_id="device-1",
+            client_id="vivosun-device-1",
+            topic_prefix="topic/1",
+            name="GrowHub A",
+            online=True,
+            scene_id=66078,
+        ),
+        start_time=100,
+        end_time=300,
+    )
+
+    assert snapshot["inTemp"] == 2100
+
+
 async def test_get_point_log_returns_e42a_plus_sensor_keys() -> None:
     payload = {
         "code": 0,

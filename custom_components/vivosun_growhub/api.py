@@ -272,7 +272,25 @@ class VivosunApiClient:
         if not entries:
             return {}
 
-        latest = self._expect_mapping_item(entries[-1], "iotDataLogList[-1]")
+        mapped_entries = [
+            self._expect_mapping_item(entry, f"iotDataLogList[{index}]")
+            for index, entry in enumerate(entries)
+        ]
+        # The cloud accepts an orderBy parameter, but some device/API
+        # combinations have returned the rows in the opposite order.  Select
+        # by the row timestamp instead of trusting the list position so a
+        # stale sample cannot remain visible while the app already shows a
+        # newer reading.
+        timestamped_entries = [
+            (timestamp, entry)
+            for entry in mapped_entries
+            if (timestamp := self._point_log_timestamp(entry)) is not None
+        ]
+        latest = (
+            max(timestamped_entries, key=lambda item: item[0])[1]
+            if timestamped_entries
+            else mapped_entries[-1]
+        )
         snapshot: dict[str, int | None] = {}
         for key in (
             SENSOR_KEY_INSIDE_TEMP,
@@ -293,6 +311,21 @@ class VivosunApiClient:
         ):
             snapshot[key] = self._optional_sensor_int(latest, key)
         return snapshot
+
+    def _point_log_timestamp(self, entry: Mapping[str, object]) -> float | None:
+        """Return a comparable timestamp from a point-log row."""
+        for key in ("time", "timestamp", "ts", "createTime"):
+            value = entry.get(key)
+            if isinstance(value, bool):
+                continue
+            if isinstance(value, (int, float)):
+                return float(value)
+            if isinstance(value, str):
+                try:
+                    return float(value)
+                except ValueError:
+                    continue
+        return None
 
     async def get_plan_stage_info(self, tokens: AuthTokens, stage_id: str) -> PlanStageInfo | None:
         """Fetch plan stage details from iot/plan/stageInfo."""
