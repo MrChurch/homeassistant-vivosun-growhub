@@ -173,8 +173,12 @@ class VivosunCoordinator(DataUpdateCoordinator[dict[str, object]]):  # type: ign
                 name="vivosun_reconnect_supervisor",
             )
             self._started = True
-            await self._refresh_point_log()
-            self.async_set_updated_data(self._build_state_snapshot())
+            # Start DataUpdateCoordinator's normal refresh lifecycle.  The
+            # previous implementation populated the initial snapshot manually
+            # but never scheduled the configured 90-second update interval.
+            # MQTT entities therefore stayed live while REST point-log sensors
+            # remained frozen until the integration was reloaded.
+            await self.async_refresh()
 
     async def async_shutdown(self) -> None:
         """Cancel workers and close MQTT resources safely."""
