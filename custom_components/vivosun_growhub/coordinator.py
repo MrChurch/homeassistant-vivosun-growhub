@@ -6,7 +6,7 @@ import asyncio
 import json
 import logging
 from copy import deepcopy
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, cast
 from uuid import uuid4
 
@@ -49,6 +49,7 @@ _RECONNECT_BACKOFF_INITIAL = 1.0
 _RECONNECT_BACKOFF_MAX = 60.0
 _RECONNECT_HEALTH_CHECK_SECONDS = 2.0
 _POINT_LOG_WINDOW_SECONDS = 300
+_POINT_LOG_REFRESH_INTERVAL_SECONDS = 90.0
 _SHADOW_REFRESH_INTERVAL_SECONDS = 30.0
 
 
@@ -70,7 +71,13 @@ class VivosunCoordinator(DataUpdateCoordinator[dict[str, object]]):  # type: ign
             hass,
             coordinator_logger,
             name=DOMAIN,
-            update_interval=timedelta(seconds=90),
+            # The coordinator is started before config-entry platforms are
+            # forwarded.  On newer Home Assistant versions that means the
+            # built-in interval can be scheduled before any entity listener
+            # exists and never starts again.  The explicit lifecycle task
+            # below keeps REST-backed climate telemetry polling independent of
+            # listener registration order.
+            update_interval=None,
         )
         self._logger = coordinator_logger
         self._api = VivosunApiClient(session)
@@ -97,6 +104,7 @@ class VivosunCoordinator(DataUpdateCoordinator[dict[str, object]]):  # type: ign
         self._topic_prefix_to_device_id: dict[str, str] = {}
 
         self._refresh_task: asyncio.Task[None] | None = None
+        self._point_log_refresh_task: asyncio.Task[None] | None = None
         self._reconnect_task: asyncio.Task[None] | None = None
         self._shutdown_event = asyncio.Event()
         self._reconnect_event = asyncio.Event()
@@ -171,6 +179,10 @@ class VivosunCoordinator(DataUpdateCoordinator[dict[str, object]]):  # type: ign
                 self._credentials_refresh_loop(),
                 name="vivosun_credentials_refresh",
             )
+            self._point_log_refresh_task = asyncio.create_task(
+                self._point_log_refresh_loop(),
+                name="vivosun_point_log_refresh",
+            )
             self._reconnect_task = asyncio.create_task(
                 self._reconnect_supervisor_loop(),
                 name="vivosun_reconnect_supervisor",
@@ -189,13 +201,22 @@ class VivosunCoordinator(DataUpdateCoordinator[dict[str, object]]):  # type: ign
             self._shutdown_event.set()
             self._reconnect_event.set()
 
-            tasks = [task for task in (self._refresh_task, self._reconnect_task) if task is not None]
+            tasks = [
+                task
+                for task in (
+                    self._refresh_task,
+                    self._point_log_refresh_task,
+                    self._reconnect_task,
+                )
+                if task is not None
+            ]
             for task in tasks:
                 task.cancel()
             if tasks:
                 await asyncio.gather(*tasks, return_exceptions=True)
 
             self._refresh_task = None
+            self._point_log_refresh_task = None
             self._reconnect_task = None
 
             await self._disconnect_support_capture_probe_client()
@@ -213,6 +234,31 @@ class VivosunCoordinator(DataUpdateCoordinator[dict[str, object]]):  # type: ign
             self._client_id_to_device_id.clear()
             self._topic_prefix_to_device_id.clear()
             self._last_shadow_refresh_request_at.clear()
+
+    async def _point_log_refresh_loop(self) -> None:
+        """Refresh REST climate telemetry on a fixed interval."""
+        try:
+            while not self._shutdown_event.is_set():
+                try:
+                    await asyncio.wait_for(
+                        self._shutdown_event.wait(),
+                        timeout=_POINT_LOG_REFRESH_INTERVAL_SECONDS,
+                    )
+                    return
+                except TimeoutError:
+                    pass
+
+                try:
+                    await self.async_refresh()
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    self._logger.warning(
+                        "Scheduled point-log refresh failed",
+                        exc_info=True,
+                    )
+        except asyncio.CancelledError:
+            raise
 
     async def async_publish_shadow_update(
         self,
