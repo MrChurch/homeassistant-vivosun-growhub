@@ -151,9 +151,12 @@ class VivosunCoordinator(DataUpdateCoordinator[dict[str, object]]):  # type: ign
         await self._refresh_point_log()
         await self._async_refresh_stale_shadow_states()
         await self._refresh_plan_stages()
-        snapshot = self._build_state_snapshot()
-        self.async_set_updated_data(snapshot)
-        return snapshot
+        # DataUpdateCoordinator publishes the value returned by this method
+        # and notifies CoordinatorEntity listeners itself.  Calling
+        # async_set_updated_data() here as well duplicates that lifecycle and
+        # can leave REST-backed entities stuck after a few scheduled cycles on
+        # newer Home Assistant versions.
+        return self._build_state_snapshot()
 
     async def async_start(self) -> None:
         """Bootstrap cloud chain and launch lifecycle workers."""
